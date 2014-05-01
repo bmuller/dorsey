@@ -4,7 +4,7 @@ import (
 	"strings"
 )
 
-// A function that can render a response to a request
+// HandlerFunc is a function that can render a response to a request.
 type HandlerFunc func(*ResponseWriter, *Request)
 
 type routeTable struct {
@@ -41,7 +41,7 @@ func (s stringMatcher) extractParams(r *Request) {
 	r.matchedPrefix = strings.Join(r.pathParts[:len(s.parts)], "/")
 	for index, part := range s.parts {
 		if strings.HasPrefix(part, ":") && len(r.pathParts[index]) > 1 {
-			r.UrlParams[part[1:]] = r.pathParts[index]
+			r.URLParams[part[1:]] = r.pathParts[index]
 		}
 	}
 }

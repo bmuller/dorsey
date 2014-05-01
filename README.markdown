@@ -1,5 +1,6 @@
 # Dorsey: A Go Microframework
 
+[![GoDoc](https://godoc.org/github.com/bmuller/dorsey?status.png)](https://godoc.org/github.com/bmuller/dorsey)
 [![Build Status](https://travis-ci.org/bmuller/dorsey.png?branch=master)](https://travis-ci.org/bmuller/dorsey)
 
 Dorsey is a micro framework for [Go](http://golang.org).  Did the world need another?  Probably not, but Dorsey does handle filtering, context, and authentication in a slightly more streamlined way than others (though much of the additional delight is syntax more than anything else).

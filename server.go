@@ -13,26 +13,26 @@ import (
 // named portions of the URL path.
 type Params map[string]string
 
-// A wrapper for the http.Request type with some additional information.
+// Request is a wrapper for the http.Request type with some additional information.
 type Request struct {
 	*http.Request
 	pathParts []string
 	// Params passed in via named parts of the URL
-	UrlParams     Params
+	URLParams     Params
 	matchedPrefix string
 }
 
-// Get a named parameter from the URL.  For instance, if the handler is added at "/a/:blah/portion",
+// GetURLParam gets a named parameter from the URL.  For instance, if the handler is added at "/a/:blah/portion",
 // then getting a requests url parameter named "blah" from /a/something/portion would return
 // "something"
 func (r *Request) GetURLParam(name string) string {
-	if value, found := r.UrlParams[name]; found {
+	if value, found := r.URLParams[name]; found {
 		return value
 	}
 	return ""
 }
 
-// Get a PUT / POST / GET param.  Pass in a default which will be returned if the param
+// GetParam will get a PUT / POST / GET param.  Pass in a default which will be returned if the param
 // is not set.
 func (r *Request) GetParam(name, def string) string {
 	if r := r.FormValue(name); r != "" {
@@ -41,12 +41,12 @@ func (r *Request) GetParam(name, def string) string {
 	return def
 }
 
-// Get a HEADER value passed in.
+// GetHeader will get a HTTP header value passed in.
 func (r *Request) GetHeader(name string) string {
 	return r.Request.Header.Get(name)
 }
 
-// A wrapper for http.ResponseWriter with some additiona information.
+// ResponseWriter is a wrapper for http.ResponseWriter with some additiona information.
 type ResponseWriter struct {
 	http.ResponseWriter
 	*http.Request
@@ -55,7 +55,7 @@ type ResponseWriter struct {
 	Context map[string]interface{}
 }
 
-// Render a value.  This should be called once and only once.  The value can be either
+// Render will render a value.  This should be called once and only once.  The value can be either
 // a string or a byte array.  The content type should be set automagically.
 func (w *ResponseWriter) Render(value interface{}) {
 	if w.rendered {
@@ -73,17 +73,17 @@ func (w *ResponseWriter) Render(value interface{}) {
 	w.rendered = true
 }
 
-// Set the given header.
+// SetHeader will set the given header.
 func (w *ResponseWriter) SetHeader(name, value string) {
 	w.ResponseWriter.Header().Set(name, value)
 }
 
-// Set the response code (200 by default).
+// SetResponseCode will set the response code (200 by default).
 func (w *ResponseWriter) SetResponseCode(code int) {
 	w.ResponseWriter.WriteHeader(code)
 }
 
-// Temporary redirect
+// Redirect will temporarily redirect
 func (w *ResponseWriter) Redirect(path string) {
 	if w.rendered {
 		log.Panicln("Render / Redirect functions can only be called at most once.")
@@ -92,13 +92,13 @@ func (w *ResponseWriter) Redirect(path string) {
 	w.rendered = true
 }
 
-// Return a 401 and request a username / password
+// Unauthorized will return a 401 and request a username / password
 func (w *ResponseWriter) Unauthorized() {
 	w.SetHeader("WWW-Authenticate", "Basic realm=\""+w.Request.Header.Get("Host")+"\"")
 	w.Error("Not Authorized", 401)
 }
 
-// Render an error.
+// Error renders an error.
 func (w *ResponseWriter) Error(error string, code int) {
 	w.SetHeader("Content-Type", "text/html; charset=utf-8")
 	w.SetResponseCode(code)
@@ -106,12 +106,12 @@ func (w *ResponseWriter) Error(error string, code int) {
 	log.Println("ERROR: " + error)
 }
 
-// Render a 500 internal server error.
+// InternalError will render a 500 internal server error.
 func (w *ResponseWriter) InternalError(error string) {
 	w.Error(error, http.StatusInternalServerError)
 }
 
-// Render a file.
+// RenderFile does what you'd expect.
 func (w *ResponseWriter) RenderFile(value string) {
 	contents, error := ioutil.ReadFile(value)
 	if error != nil {
@@ -121,12 +121,12 @@ func (w *ResponseWriter) RenderFile(value string) {
 	}
 }
 
-// Acts as a http.Handler for use by the default http.Server type
+// Server acts as a http.Handler for use by the default http.Server type
 type Server struct {
 	routes routeTable
 }
 
-// Create a http.Server and set it's handler with the given Server.
+// Run will create a http.Server and set it's handler with the given Server.
 func (s *Server) Run(hostport string) error {
 	hs := &http.Server{
 		Addr:           hostport,
@@ -139,31 +139,32 @@ func (s *Server) Run(hostport string) error {
 	return hs.ListenAndServe()
 }
 
-// Add the given HandlerFunc at the set path to handle GET requests
+// Get will add the given HandlerFunc at the set path to handle GET requests
 func (s *Server) Get(path interface{}, hs ...HandlerFunc) {
 	s.AddRoute("GET", path, hs)
 }
 
-// Add the given HandlerFunc at the set path to handle POST requests
+// Post will add the given HandlerFunc at the set path to handle POST requests
 func (s *Server) Post(path interface{}, hs ...HandlerFunc) {
 	s.AddRoute("POST", path, hs)
 }
 
-// Add the given HandlerFunc at the set path to handle PUT requests
+// Put will add the given HandlerFunc at the set path to handle PUT requests
 func (s *Server) Put(path interface{}, hs ...HandlerFunc) {
 	s.AddRoute("PUT", path, hs)
 }
 
-// Add the given HandlerFunc at the set path to handle DELETE requests
+// Delete will add the given HandlerFunc at the set path to handle DELETE requests
 func (s *Server) Delete(path interface{}, hs ...HandlerFunc) {
 	s.AddRoute("DELETE", path, hs)
 }
 
-// If you have a custom route you'd like to add (for instance, with a custom http method),
-// you can use:
-//
-//        s.AddRoute("XGET", "/some/path", aHandlerFunc)
-//
+/*
+AddRoute adds a route to the routing table in the Server.
+If you have a custom route you'd like to add (for instance, with a custom http method),
+you can use:
+        s.AddRoute("XGET", "/some/path", aHandlerFunc)
+*/
 func (s *Server) AddRoute(method string, path interface{}, hs []HandlerFunc) {
 	switch path.(type) {
 	case string:
@@ -176,13 +177,13 @@ func (s *Server) AddRoute(method string, path interface{}, hs []HandlerFunc) {
 }
 
 // Primary handler function.  All routing is done here.
-func (h *Server) ServeHTTP(hw http.ResponseWriter, hr *http.Request) {
+func (s *Server) ServeHTTP(hw http.ResponseWriter, hr *http.Request) {
 	log.Println("Handling request for", hr.URL.Path)
 
 	r := &Request{
 		Request:   hr,
 		pathParts: strings.Split(hr.URL.Path, "/"),
-		UrlParams: make(Params),
+		URLParams: make(Params),
 	}
 
 	rw := &ResponseWriter{
@@ -192,9 +193,9 @@ func (h *Server) ServeHTTP(hw http.ResponseWriter, hr *http.Request) {
 		Context:        make(map[string]interface{}),
 	}
 
-	for index, handlerfuncs := range h.routes.handlerFuncs {
-		if h.routes.methods[index] == hr.Method && h.routes.pathMatchers[index].match(r) {
-			h.routes.pathMatchers[index].extractParams(r)
+	for index, handlerfuncs := range s.routes.handlerFuncs {
+		if s.routes.methods[index] == hr.Method && s.routes.pathMatchers[index].match(r) {
+			s.routes.pathMatchers[index].extractParams(r)
 			for _, handlerfunc := range handlerfuncs {
 				handlerfunc(rw, r)
 				if rw.rendered {
@@ -209,7 +210,7 @@ func (h *Server) ServeHTTP(hw http.ResponseWriter, hr *http.Request) {
 	rw.Error("File not found: "+r.URL.String(), http.StatusNotFound)
 }
 
-// Create a new Server
+// New will create a new dorsey Server
 func New() *Server {
 	return &Server{}
 }
