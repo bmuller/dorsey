@@ -17,7 +17,7 @@ Dorsey is simple.
 
 ```go
 func showContent(w *dorsey.ResponseWriter, r *dorsey.Request) {
-     w.Render("Hi There " + w.GetURLParam("name"))
+     w.Render("Hi There " + r.GetURLParam("name"))
 }
 
 server := dorsey.New()

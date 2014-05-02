@@ -3,10 +3,11 @@ package dorsey
 import (
 	"fmt"
 	"io/ioutil"
-	"log"
 	"net/http"
 	"strings"
 	"time"
+
+	"github.com/op/go-logging"
 )
 
 // Params is used to keep track of parameters that may be passed in via
@@ -53,13 +54,14 @@ type ResponseWriter struct {
 	rendered bool
 	// Pass context variables on to future handlers
 	Context map[string]interface{}
+	Log     *logging.Logger
 }
 
 // Render will render a value.  This should be called once and only once.  The value can be either
 // a string or a byte array.  The content type should be set automagically.
 func (w *ResponseWriter) Render(value interface{}) {
 	if w.rendered {
-		log.Panicln("Render / Redirect functions can only be called at most once.")
+		w.Log.Critical("Render / Redirect functions can only be called at most once.")
 	}
 
 	switch value.(type) {
@@ -68,7 +70,7 @@ func (w *ResponseWriter) Render(value interface{}) {
 	case []byte:
 		fmt.Fprint(w.ResponseWriter, value)
 	default:
-		log.Panicln("No idea how to render passsed value:", value)
+		w.Log.Critical("No idea how to render passsed value: %s", value)
 	}
 	w.rendered = true
 }
@@ -86,7 +88,7 @@ func (w *ResponseWriter) SetResponseCode(code int) {
 // Redirect will temporarily redirect
 func (w *ResponseWriter) Redirect(path string) {
 	if w.rendered {
-		log.Panicln("Render / Redirect functions can only be called at most once.")
+		w.Log.Critical("Render / Redirect functions can only be called at most once.")
 	}
 	http.Redirect(w.ResponseWriter, w.Request, path, http.StatusTemporaryRedirect)
 	w.rendered = true
@@ -103,7 +105,7 @@ func (w *ResponseWriter) Error(error string, code int) {
 	w.SetHeader("Content-Type", "text/html; charset=utf-8")
 	w.SetResponseCode(code)
 	w.Render(fmt.Sprintf("<html><body><h1>HTTP %d Error</h1></body></html>", code))
-	log.Println("ERROR: " + error)
+	w.Log.Error("ERROR: " + error)
 }
 
 // InternalError will render a 500 internal server error.
@@ -124,6 +126,7 @@ func (w *ResponseWriter) RenderFile(value string) {
 // Server acts as a http.Handler for use by the default http.Server type
 type Server struct {
 	routes routeTable
+	Log    *logging.Logger
 }
 
 // Run will create a http.Server and set it's handler with the given Server.
@@ -135,7 +138,7 @@ func (s *Server) Run(hostport string) error {
 		WriteTimeout:   10 * time.Second,
 		MaxHeaderBytes: 1 << 20,
 	}
-	log.Println("Starting server on", hostport)
+	s.Log.Debug("Starting server on %s", hostport)
 	return hs.ListenAndServe()
 }
 
@@ -172,13 +175,13 @@ func (s *Server) AddRoute(method string, path interface{}, hs []HandlerFunc) {
 		s.routes.handlerFuncs = append(s.routes.handlerFuncs, hs)
 		s.routes.methods = append(s.routes.methods, method)
 	default:
-		log.Fatalf("Unknown path type %v", path)
+		s.Log.Critical("Unknown path type %v", path)
 	}
 }
 
 // Primary handler function.  All routing is done here.
 func (s *Server) ServeHTTP(hw http.ResponseWriter, hr *http.Request) {
-	log.Println("Handling request for", hr.URL.Path)
+	s.Log.Info("Handling request for", hr.URL.Path)
 
 	r := &Request{
 		Request:   hr,
@@ -191,6 +194,7 @@ func (s *Server) ServeHTTP(hw http.ResponseWriter, hr *http.Request) {
 		Request:        hr,
 		rendered:       false,
 		Context:        make(map[string]interface{}),
+		Log:            s.Log,
 	}
 
 	for index, handlerfuncs := range s.routes.handlerFuncs {
@@ -212,5 +216,6 @@ func (s *Server) ServeHTTP(hw http.ResponseWriter, hr *http.Request) {
 
 // New will create a new dorsey Server
 func New() *Server {
-	return &Server{}
+	logging.SetLevel(logging.INFO, "dorsey")
+	return &Server{Log: logging.MustGetLogger("dorsey")}
 }
